@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 void main() {
   runApp(const MyApp());
@@ -31,6 +33,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final List<String> _tags = [];
+  String _data = '';
 
   void _addTag(String tag) {
     setState(() {
@@ -74,6 +77,31 @@ class _MyHomePageState extends State<MyHomePage> {
         );
       },
     );
+  }
+
+  Future<void> _fetchData() async {
+    final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/posts/1'));
+
+    if (response.statusCode == 200) {
+      setState(() {
+        _data = json.decode(response.body)['title'];
+      });
+    } else {
+      throw Exception('Failed to load data');
+    }
+  }
+
+  void _getNews(List<String> tags) async {
+    for (String tag in tags) {
+      final response = await http.get(Uri.parse('https://newsapi.org/v2/everything?q=${tag}&from=2024-11-03&sortBy=publishedAt&apiKey=ac13a14410f84ef4b9db07d8d91fd617'));
+      if (response.statusCode == 200) {
+        setState(() {
+          _data += '\n${json.decode(response.body)['articles'][0]['title']}';
+        });
+      } else {
+        throw Exception('Failed to load news');
+      }
+    }
   }
 
   @override
