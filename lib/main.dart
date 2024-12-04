@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 void main() {
   runApp(const MyApp());
@@ -34,11 +35,45 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   final List<String> _tags = [];
   String _data = '';
+  late FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
+
+  @override
+  void initState() {
+    super.initState();
+    flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+    const AndroidInitializationSettings initializationSettingsAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings =
+        InitializationSettings(android: initializationSettingsAndroid);
+    flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
 
   void _addTag(String tag) {
     setState(() {
       _tags.add(tag);
     });
+    _showNotification(tag);
+  }
+
+  void _showNotification(String tag) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+        AndroidNotificationDetails(
+      'your_channel_id',
+      'your_channel_name',
+      channelDescription: 'your_channel_description',
+      importance: Importance.max,
+      priority: Priority.high,
+      showWhen: false,
+    );
+    const NotificationDetails platformChannelSpecifics =
+        NotificationDetails(android: androidPlatformChannelSpecifics);
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Tag Adicionada',
+      'A tag "$tag" foi adicionada. Novas notícias com essa tag enviarão notificações.',
+      platformChannelSpecifics,
+      payload: 'item x',
+    );
   }
 
   void _removeTag(String tag) {
@@ -79,28 +114,16 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  Future<void> _fetchData() async {
-    final response = await http.get(Uri.parse('https://jsonplaceholder.typicode.com/posts/1'));
-
-    if (response.statusCode == 200) {
-      setState(() {
-        _data = json.decode(response.body)['title'];
-      });
-    } else {
-      throw Exception('Failed to load data');
-    }
-  }
-
   void _getNews(List<String> tags) async {
     for (String tag in tags) {
-      final response = await http.get(Uri.parse('https://newsapi.org/v2/everything?q=${tag}&from=2024-11-03&sortBy=publishedAt&apiKey=ac13a14410f84ef4b9db07d8d91fd617'));
-      if (response.statusCode == 200) {
-        setState(() {
-          _data += '\n${json.decode(response.body)['articles'][0]['title']}';
-        });
-      } else {
-        throw Exception('Failed to load news');
-      }
+      final newsApi = await http.get(Uri.parse('https://newsapi.org/v2/everything?q=${tag}&from=2024-11-03&sortBy=publishedAt&apiKey=ac13a14410f84ef4b9db07d8d91fd617'));
+      final newsData = await http.get(Uri.parse('https://newsdata.io/api/1/latest?apikey=pub_6129991685a75dd63079c904f7160050cb879&q=${tag}&region=washington-united%20states%20of%20america'));
+
+      //implementar função de salvar no banco, comparar e mandar notificação.
+      //logica newsApi: titulo = jsonDecode(newsApi.body)['articles'][0]['title'] url = jsonDecode(newsData.body)['articles'][0]['url']
+      //logica newsData: titulo = jsonDecode(newsData.body)['results'][0]['title'] url = jsonDecode(newsData.body)['results'][0]['link']
+
+      //as requests retornam muitos dados então roda um for pra pegar todos e comparar dps
     }
   }
 
