@@ -48,6 +48,27 @@ class NewsDatabase extends _$NewsDatabase {
         .then((value) => value > 0);
   }
 
+  Future<NewsArticle> getArticleById(int id) async {
+    return (select(newsArticles)..where((tbl) => tbl.id.equals(id)))
+        .getSingle();
+  }
+
+  Future<void> logDatabaseState() async {
+    final allArticles = await select(newsArticles).get();
+    print('\nCurrent Database State:');
+    print('Total articles in database: ${allArticles.length}');
+
+    for (var article in allArticles) {
+      print('ID: ${article.id}');
+      print('Title: ${article.title}');
+      print('Published: ${article.publishedAt}');
+      print('Tag: ${article.matchedTag}');
+      print('Read: ${article.isRead}');
+      print('URL: ${article.url}');
+      print('---');
+    }
+  }
+
   Future<int> addNewsArticle(NewsArticlesCompanion entry) {
     return into(newsArticles).insert(entry);
   }
@@ -79,12 +100,6 @@ LazyDatabase _openConnection() {
   return LazyDatabase(() async {
     final dbFolder = await getApplicationDocumentsDirectory();
     final file = File(p.join(dbFolder.path, 'news.sqlite'));
-
-    if (file.existsSync()) {
-      file.deleteSync();
-      print('Deleted existing database file');
-    }
-
     return NativeDatabase(file);
   });
 }

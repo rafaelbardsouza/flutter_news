@@ -1,14 +1,22 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_news/services/notification_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 import 'firebase_options.dart';
 import 'package:flutter_news/services/background_service.dart';
 import 'package:flutter_news/database/news_database.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  try {
+    await NotificationService().initialize();
+    print('Notifications initialized successfully');
+  } catch (e) {
+    print('Error initializing notifications: $e');
+  }
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -42,6 +50,17 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  Future<void> triggerManualNewsSync() async {
+    await Workmanager().registerOneOffTask(
+      "manualFetch",
+      fetchNewsTask,
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+      ),
+    );
+    print('Manual news sync triggered at ${DateTime.now()}');
+  }
+
   final List<String> _tags = [];
   final database = NewsDatabase();
 
@@ -77,7 +96,7 @@ class _MyHomePageState extends State<MyHomePage> {
         _tags.add(tag);
       });
 
-      _getNews([tag]);
+      triggerManualNewsSync();
     } catch (e) {
       print('Error adding tag: $e');
     }
@@ -91,7 +110,6 @@ class _MyHomePageState extends State<MyHomePage> {
       await prefs.setStringList('news_tags', tags);
       print('Tags after removal from SharedPreferences: $tags');
 
-      final database = NewsDatabase();
       await database.deleteArticlesByTag(tag);
 
       setState(() {
@@ -134,46 +152,18 @@ class _MyHomePageState extends State<MyHomePage> {
     );
   }
 
-  void _getNews(List<String> tags) async {
-    for (String tag in tags) {
-      try {
-        final newsApi = await http.get(Uri.parse(
-            'https://newsapi.org/v2/top-headlines?apiKey=ac13a14410f84ef4b9db07d8d91fd617&q=$tag&pageSize=100'));
-
-        final newsData = await http.get(Uri.parse(
-            'https://newsdata.io/api/1/latest?apikey=pub_6129991685a75dd63079c904f7160050cb879&q=${tag}'
-            // 'https://newsdata.io/api/1/latest?apikey=pub_6129991685a75dd63079c904f7160050cb879&q=${tag}&region=washington-united%20states%20of%20america'
-            ));
-
-        final newsApiJson = jsonDecode(newsApi.body);
-        print('NewsAPI Response for tag $tag:');
-        print('Status: ${newsApiJson['status']}');
-        if (newsApiJson['articles'] != null &&
-            newsApiJson['articles'].isNotEmpty) {
-          print('First article example:');
-          print('Title: ${newsApiJson['articles'][0]['title']}');
-          print('URL: ${newsApiJson['articles'][0]['url']}');
-          print('Published At: ${newsApiJson['articles'][0]['publishedAt']}');
-          print('Total articles: ${newsApiJson['articles'].length}');
-        }
-
-        final newsDataJson = jsonDecode(newsData.body);
-        print('\nNewsData Response for tag $tag:');
-        print('Status: ${newsDataJson['status']}');
-        if (newsDataJson['results'] != null &&
-            newsDataJson['results'].isNotEmpty) {
-          print('First article example:');
-          print('Title: ${newsDataJson['results'][0]['title']}');
-          print('URL: ${newsDataJson['results'][0]['link']}');
-          print('Published At: ${newsDataJson['results'][0]['pubDate']}');
-          print('Total results: ${newsDataJson['results'].length}');
-        }
-
-        print('\n-------------------\n');
-      } catch (e) {
-        print('Error fetching news for tag $tag: $e');
-      }
-    }
+  Future<void> _triggerBackgroundFetch() async {
+    print('Manually triggering background fetch...');
+    await Workmanager().registerOneOffTask(
+      "manualFetch",
+      fetchNewsTask,
+      constraints: Constraints(
+        networkType: NetworkType.connected,
+      ),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Background fetch triggered')),
+    );
   }
 
   @override
@@ -209,11 +199,24 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTagDialog,
-        tooltip: 'Adicionar Tag',
-        backgroundColor: Colors.black,
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            onPressed: _showAddTagDialog,
+            tooltip: 'Adicionar Tag',
+            backgroundColor: Colors.black,
+            child: const Icon(Icons.add, color: Colors.white),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton(
+            onPressed: _triggerBackgroundFetch,
+            tooltip: 'Fetch News',
+            backgroundColor: Colors.blue,
+            child: const Icon(Icons.sync, color: Colors.white),
+          ),
+        ],
       ),
     );
   }
