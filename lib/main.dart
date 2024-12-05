@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_news/services/notification_service.dart';
+import 'package:flutter_news/services/unread_news_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 import 'firebase_options.dart';
@@ -20,7 +21,9 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  initializeUnreadNewsCheck();
   initializeBackgroundTasks();
+  await NotificationService().requestPermissions();
   runApp(const MyApp());
 }
 
@@ -104,19 +107,38 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _removeTag(String tag) async {
     try {
+      final count = await database.deleteArticlesByTag(tag);
+      print('Deleted $count articles associated with tag: $tag');
+
       final prefs = await SharedPreferences.getInstance();
       final tags = prefs.getStringList('news_tags') ?? [];
       tags.remove(tag);
       await prefs.setStringList('news_tags', tags);
       print('Tags after removal from SharedPreferences: $tags');
 
-      await database.deleteArticlesByTag(tag);
-
       setState(() {
         _tags.remove(tag);
       });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+                'Tag "$tag" e ${count} notícias associadas foram removidas'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
     } catch (e) {
       print('Error removing tag: $e');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro ao remover tag: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

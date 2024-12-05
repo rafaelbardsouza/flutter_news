@@ -78,11 +78,11 @@ class NewsDatabase extends _$NewsDatabase {
         .get();
   }
 
-  Future<bool> markAsRead(int id) {
-    return update(newsArticles).replace(NewsArticlesCompanion(
-      id: Value(id),
-      isRead: const Value(true),
-    ));
+  Future<bool> markAsRead(int id) async {
+    final rowsAffected = await (update(newsArticles)
+          ..where((t) => t.id.equals(id)))
+        .write(const NewsArticlesCompanion(isRead: Value(true)));
+    return rowsAffected > 0;
   }
 
   Future<List<NewsArticle>> getArticlesByTag(String tag) {

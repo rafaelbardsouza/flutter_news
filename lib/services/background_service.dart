@@ -8,6 +8,7 @@ import '../services/notification_service.dart';
 const fetchNewsTask = "fetchNewsTask";
 const newsApiKey = "ac13a14410f84ef4b9db07d8d91fd617";
 const newsDataKey = "pub_6129991685a75dd63079c904f7160050cb879";
+const maxArticlesPerTag = 3;
 
 void logNewsArticle(NewsArticle article) {
   print('New article saved to database:');
@@ -178,10 +179,11 @@ void callbackDispatcher() {
 
 void initializeBackgroundTasks() async {
   await Workmanager().initialize(callbackDispatcher);
+
   await Workmanager().registerPeriodicTask(
     "1",
     fetchNewsTask,
-    frequency: const Duration(minutes: 30),
+    frequency: const Duration(minutes: 15),
     constraints: Constraints(
       networkType: NetworkType.connected,
     ),
